@@ -1,158 +1,159 @@
 from pathlib import Path
 import shutil
-p = Path('.')
 
-def Create_folder():
-            try:
-                Show_folder()
-                fileName = input("\nEnter Path with folder Name:- ")
+BASE_PATH = Path(__file__).resolve().parent
 
-                dic = Path(fileName)
 
-                dic.mkdir()
+def resolve_path(path_text: str) -> Path:
+    path = Path(path_text.strip()).expanduser()
+    return path if path.is_absolute() else BASE_PATH / path
 
-                if dic.exists():
-                    print(f"\nFolder Succesfully '{dic}' Created")
-            except Exception as err:
-                print(f"Error: {err}")
 
-def Rename_folder():
+def display_path(path: Path) -> str:
     try:
-        Show_folder()
-        fileName = input("\nEnter Path with folder Name:- ")
-        newFileName = input("\nEnter New Name:- ")
-        dic = Path(fileName)
-        dic.rename(newFileName)
-        print(f"Rename Succesfully from Folder '{dic}' to '{newFileName}'")
-    except Exception as err:
-        print(f"Error: {err}")
+        return str(path.relative_to(BASE_PATH))
+    except ValueError:
+        return str(path)
 
-def Show_folder():
-    print(f"\nAll Folders In Current working directory:- ")
-    for i in p.iterdir():
-        if i.exists() and i.is_dir():
-            print(f"• {i}")
-        else:
-            print("Oops! There is no such Folders")
 
-def Remove_folder():
-    try:
-        Show_folder()
-        fileName = input("\nEnter Path with folder Name:- ")
-        dic = Path(fileName)
-        if dic.exists() and dic.is_dir():
-            shutil.rmtree(dic)
-            print(f"{dic} is Removed Succesfully")
-    except Exception as err:
-        print(f"Error: {err}")
+def normalize_target(source: Path, new_name: str) -> Path:
+    target = Path(new_name.strip())
+    target = target if target.is_absolute() else source.parent / target
+    return target
 
-    ...
 
-def Create_file():
+def list_folders(root: Path | None = None) -> list[Path]:
+    root = root or BASE_PATH
+    return sorted([item for item in root.iterdir() if item.is_dir()], key=lambda item: item.name.lower())
+
+
+def list_files(root: Path | None = None) -> list[Path]:
+    root = root or BASE_PATH
+    return sorted([item for item in root.rglob('*') if item.is_file()], key=lambda item: str(item).lower())
+
+
+def get_dashboard_stats() -> dict[str, int]:
+    return {'folders': len(list_folders()), 'files': len(list_files())}
+
+
+def create_folder(path_text: str) -> Path:
+    folder = resolve_path(path_text)
+    folder.mkdir(parents=True, exist_ok=False)
+    return folder
+
+
+def rename_folder(path_text: str, new_name: str) -> tuple[Path, Path]:
+    source = resolve_path(path_text)
+    if not source.is_dir():
+        raise FileNotFoundError(f"Folder not found: {display_path(source)}")
+    target = normalize_target(source, new_name)
+    source.rename(target)
+    return source, target
+
+
+def remove_folder(path_text: str) -> Path:
+    folder = resolve_path(path_text)
+    if not folder.is_dir():
+        raise FileNotFoundError(f"Folder not found: {display_path(folder)}")
+    shutil.rmtree(folder)
+    return folder
+
+
+def create_file(path_text: str) -> Path:
+    file_path = resolve_path(path_text)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.touch(exist_ok=False)
+    return file_path
+
+
+def rename_file(path_text: str, new_name: str) -> tuple[Path, Path]:
+    source = resolve_path(path_text)
+    if not source.is_file():
+        raise FileNotFoundError(f"File not found: {display_path(source)}")
+    target = normalize_target(source, new_name)
+    source.rename(target)
+    return source, target
+
+
+def remove_file(path_text: str) -> Path:
+    file_path = resolve_path(path_text)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"File not found: {display_path(file_path)}")
+    file_path.unlink()
+    return file_path
+
+
+def write_file_content(path_text: str, content: str) -> Path:
+    file_path = resolve_path(path_text)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(content, encoding='utf-8')
+    return file_path
+
+
+def read_file_content(path_text: str) -> str:
+    file_path = resolve_path(path_text)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"File not found: {display_path(file_path)}")
+    return file_path.read_text(encoding='utf-8')
+
+
+def append_file_content(path_text: str, content: str) -> Path:
+    file_path = resolve_path(path_text)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"File not found: {display_path(file_path)}")
+    with open(file_path, 'a', encoding='utf-8') as handle:
+        handle.write(content)
+    return file_path
+
+
+def print_items(title: str, items: list[Path]) -> None:
+    print(f"\n{title}")
+    print('-' * len(title))
+    if not items:
+        print('No items found.')
+        return
+    for index, item in enumerate(items, start=1):
+        print(f"{index}. {display_path(item)}")
+
+
+def run_cli() -> None:
+    actions = {
+        '1': lambda: create_folder(input('Folder path: ')),
+        '2': lambda: print_items('Folders', list_folders()),
+        '3': lambda: rename_folder(input('Folder path: '), input('New name/path: ')),
+        '4': lambda: remove_folder(input('Folder path: ')),
+        '5': lambda: create_file(input('File path: ')),
+        '6': lambda: print_items('Files', list_files()),
+        '7': lambda: rename_file(input('File path: '), input('New name/path: ')),
+        '8': lambda: remove_file(input('File path: ')),
+        '9': lambda: write_file_content(input('File path: '), input('Write content: ')),
+        '10': lambda: print(read_file_content(input('File path: '))),
+        '11': lambda: append_file_content(input('File path: '), input('Append content: ')),
+    }
+    menu = (
+        '\nFILE MANAGEMENT SYSTEM\n'
+        '1. Create Folder\n2. Show Folders\n3. Rename Folder\n4. Delete Folder\n'
+        '5. Create File\n6. Show Files\n7. Rename File\n8. Remove File\n'
+        '9. Write File\n10. Read File\n11. Append File\n12. Exit\n'
+    )
+    while True:
+        print(menu)
+        choice = input('Choose 1-12: ').strip()
+        if choice == '12':
+            print('Goodbye!')
+            break
         try:
-            Show_files()
-            fileName = input("\n File Name With Extension:- ")
-            dic = Path(fileName)
-            dic.touch()
-            if dic.exists():
-                print(f"\nFile Succesfully '{dic}' Created")
+            result = actions[choice]()
+            if isinstance(result, tuple):
+                print('Success:', ' -> '.join(display_path(p) for p in result))
+            elif isinstance(result, Path):
+                print(f"Success: {display_path(result)}")
+        except KeyError:
+            print('Invalid option.')
         except Exception as err:
-            print(f"Error: {err}")
-
-def Show_files():
-    print(f"\nList Of Directroy Or file Available In Current working directory:- ")
-    files = list(p.rglob('*'))
-    for i,v in enumerate(files):
-        if v.is_file():
-            print(f"\n• {i+1}) {v}")
-
-def Rename_file():
-    try:
-        Show_files()
-        fileName = input("\nFile Name With Extension:- ")
-        newFileName = input("\n Enter New Name:- ")
-        dic = Path(fileName)
-        dic.rename(newFileName)
-    except Exception as err:
-        print(f"Error: {err}")
-    ...
-
-def Remove_file():
-    try:
-        Show_files()
-        fileName = input("\nFile Name With Extension:- ")
-        dic = Path(fileName)
-        if dic.exists() and dic.is_file():
-            dic.unlink()
-            print(f"{dic} is Removed Succesfully")
-    except Exception as err:
-        print(f"Error: {err}")
-    ...
-
-def Write_file():
-    try:
-        Show_files()
-        fileName = input("\nFile Name With Extension:- ")
-        dic = Path(fileName)
-        with open(dic, 'w') as f:
-            f.write(input("\nEnter Data:- "))
-        print(f"Data Written To {dic} Succesfully")
-    except Exception as err:
-        print(f"Error: {err}")
-
-def Read_file():
-    try:
-        Show_files()
-        fileName = input("\nFile Name With Extension:- ")
-        dic = Path(fileName)
-        with open(dic, 'r') as f:
-            print(f.read())
-    except Exception as err:
-        print(f"Error: {err}")
-
-def Append_file():
-    try:
-        Show_files()
-        fileName = input("\nFile Name With Extension:- ")
-        dic = Path(fileName)
-        with open(dic, 'a') as f:
-            data = input("\nEnter Data:- ")
-            f.write(f" {data}")
-        print(f"Data Appended To {dic} Succesfully")
-    except Exception as err:
-        print(f"Error: {err}")
-    ...
+            print(f'Error: {err}')
+        input('\nPress Enter to continue...')
 
 
-while True:
-    opt = int(input("\nFolder Operation\n1. Create Folder\n2. Show Folders\n3. Rename Folder\n4. Delete Folder\n\nFile Operation \n5. Create File\n6. Show Files\n7. Rename File\n8. Remove File\n9. Write File\n10. Read File\n11. Append To File\n12. exit():- "))
-
-    if not 0 < opt <=12:
-        print("\nInvalid Input")
-
-    match  opt:
-        case 1:
-            Create_folder()
-        case 2:
-            Show_folder()
-        case 3:
-            Rename_folder()
-        case 4:
-            Remove_folder()
-        case 5:
-            Create_file()
-        case 6:
-            Show_files()
-        case 7:
-            Rename_file()
-        case 8:
-            Remove_file()
-        case 9:
-            Write_file()
-        case 10:
-            Read_file()
-        case 11:
-            Append_file()
-        case 12:
-            exit()
-
+if __name__ == '__main__':
+    run_cli()
